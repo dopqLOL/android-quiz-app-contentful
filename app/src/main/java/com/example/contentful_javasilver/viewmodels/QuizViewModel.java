@@ -621,9 +621,39 @@ public class QuizViewModel extends AndroidViewModel {
             String nextQid = chapter + "-" + nextQuestionNum;
             Log.d(TAG, "Calculated next sequential QID: " + nextQid);
 
-            // 次のQIDでクイズをロード (loadQuizByQid を再利用)
-            // loadQuizByQid は isLoading を true にし、完了時に false にする
-            loadQuizByQid(nextQid);
+            // --- 修正ここから ---
+            // allQids がロードされているか確認
+            if (allQids == null || allQids.isEmpty()) {
+                 Log.e(TAG, "Cannot check next QID, allQids is not loaded or empty.");
+                 errorMessage.postValue("問題リストを読み込み中です。しばらく待ってからもう一度お試しください。");
+                 return;
+            }
+
+            // 次のQIDが存在するか確認
+            if (allQids.contains(nextQid)) {
+                Log.d(TAG, "Next QID found: " + nextQid + ". Loading...");
+                loadQuizByQid(nextQid);
+            } else {
+                // 次のQIDが存在しない場合、さらに次のQIDを試す
+                Log.d(TAG, "Next QID not found: " + nextQid + ". Trying next-next QID.");
+                int nextNextQuestionNum = nextQuestionNum + 1;
+                String nextNextQid = chapter + "-" + nextNextQuestionNum;
+                Log.d(TAG, "Calculated next-next sequential QID: " + nextNextQid);
+
+                if (allQids.contains(nextNextQid)) {
+                     Log.d(TAG, "Next-next QID found: " + nextNextQid + ". Loading...");
+                     loadQuizByQid(nextNextQid);
+                } else {
+                    // 次の次も存在しない場合
+                    Log.w(TAG, "Next QID (" + nextQid + ") and next-next QID (" + nextNextQid + ") not found.");
+                    errorMessage.postValue("この章の次の問題が見つかりませんでした。"); // または、最初の問題に戻るなどの処理
+                    // isLoading.postValue(false); // 必要に応じてローディング状態を解除
+                }
+            }
+             // --- 修正ここまで ---
+
+            // 元のロード処理は削除 (条件分岐内で実行されるため)
+            // loadQuizByQid(nextQid);
 
         } catch (NumberFormatException e) {
             Log.e(TAG, "Error parsing QID for sequential move: " + currentQid, e);

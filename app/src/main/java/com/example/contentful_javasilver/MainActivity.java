@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.MenuItem; // Import MenuItem
 import android.view.View;
 import android.view.Menu; // Import Menu
+import android.view.ViewGroup; // <<< Add this import
 import android.graphics.PorterDuff; // Import PorterDuff for tinting
 import androidx.core.content.ContextCompat; // Import ContextCompat
 import androidx.core.view.ViewCompat;
@@ -113,6 +114,30 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 originalNavPaddingBottom + insets.bottom
             );
             return windowInsets;
+        });
+
+        // Apply insets listener to Bottom Navigation CardView to handle navigation bar overlap
+        final View bottomNavCard = binding.bottomNavCard; // Target the CardView
+        // Store original bottom padding/margin if needed, assuming 0 for now
+        // If you have margin set in XML, get it here: e.g., ((ViewGroup.MarginLayoutParams) bottomNavCard.getLayoutParams()).bottomMargin;
+        final int originalBottomNavMarginBottom = 0; 
+
+        ViewCompat.setOnApplyWindowInsetsListener(bottomNavCard, (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()); // Use navigationBars() type
+            // Apply the bottom inset as bottom margin to the CardView
+            if (v.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+                params.bottomMargin = originalBottomNavMarginBottom + insets.bottom;
+                v.setLayoutParams(params);
+            } else {
+                // Fallback or log error if layout params are not MarginLayoutParams
+                Log.w("MainActivity", "BottomNavCard LayoutParams are not MarginLayoutParams, cannot apply bottom margin.");
+            }
+            // Consume only the navigation bar insets, let others pass through
+            // This prevents interfering with other inset handling (like status bar)
+             return new WindowInsetsCompat.Builder(windowInsets)
+                 .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 0)) // Consume bottom inset
+                 .build();
         });
 
         drawerLayout = binding.drawerLayout; // Get DrawerLayout
