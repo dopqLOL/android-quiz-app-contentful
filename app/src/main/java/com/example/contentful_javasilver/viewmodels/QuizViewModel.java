@@ -162,6 +162,12 @@ public class QuizViewModel extends AndroidViewModel {
     // ★★★ Firestore インスタンスを追加 ★★★
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+    // ★★★ Chapter進捗情報 LiveData ★★★
+    private final MutableLiveData<Map<Integer, Pair<Integer, Integer>>> chapterProgressMapLiveData = new MutableLiveData<>();
+    public LiveData<Map<Integer, Pair<Integer, Integer>>> getChapterProgressMapLiveData() { 
+        return chapterProgressMapLiveData; 
+    }
+
     public QuizViewModel(@NonNull Application application) {
         super(application);
         database = QuizDatabase.getDatabase(application);
@@ -245,20 +251,23 @@ public class QuizViewModel extends AndroidViewModel {
      */
     public void loadAllProblems() {
         isLoading.setValue(true);
-        // Replace executor with viewModelScope using BuildersKt.launch
         BuildersKt.launch(viewModelScope, Dispatchers.getIO(), CoroutineStart.DEFAULT, (coroutineScope, continuation) -> {
             try {
-                List<QuizEntity> quizzes = quizDao.getAllQuizzesSorted(); // Use quizDao field
+                List<QuizEntity> quizzes = quizDao.getAllQuizzesSorted();
                 allQuizzes.postValue(quizzes);
                 Log.d(TAG, "Loaded " + (quizzes != null ? quizzes.size() : 0) + " problems for the list.");
+                
+                // ★★★ 問題ロード後に進捗計算をトリガー ★★★
+                calculateAllChapterProgressAsync(); 
+                
             } catch (Exception e) {
                 Log.e(TAG, "Error loading all problems", e);
                 errorMessage.postValue("問題リストの読み込みに失敗しました: " + e.getMessage());
-                allQuizzes.postValue(Collections.emptyList()); // Post empty list on error
+                allQuizzes.postValue(Collections.emptyList());
             } finally {
                 isLoading.postValue(false);
             }
-            return Unit.INSTANCE; // Return Unit for Kotlin suspend lambda compatibility
+            return Unit.INSTANCE;
         });
     }
 
@@ -848,6 +857,15 @@ public class QuizViewModel extends AndroidViewModel {
                 // ★★★ ローカル統計の更新も維持 ★★★
                 Log.d(TAG, "[recordAnswerResult] Calling loadStatisticsData (for local stats)...");
                 loadStatisticsData();
+
+                // ★★★ 解答記録後にも進捗再計算をトリガー ★★★
+                calculateAllChapterProgressAsync();
+
+                // ★★★ 統計データも再ロード（非同期実行）★★★
+                 BuildersKt.launch(viewModelScope, Dispatchers.getMain(), CoroutineStart.DEFAULT, (mainScope, mainContinuation) -> {
+                    loadStatisticsData();
+                    return Unit.INSTANCE;
+                });
 
             } catch (Exception e) {
                 Log.e(TAG, "Error inserting quiz history for problem: " + qid + " to LOCAL DB", e);
@@ -1541,6 +1559,45 @@ public class QuizViewModel extends AndroidViewModel {
         }).addOnFailureListener(e -> {
             Log.e(TAG, "[updateUserStats] Error fetching user document for user: " + userId, e);
             // 読み込みに失敗した場合のエラーハンドリング (例: エラーメッセージ表示)
+        });
+    }
+
+    /**
+     * 全てのチャプターのカテゴリ進捗（完了数/総数）を非同期で計算し、LiveDataを更新します。
+     */
+    private void calculateAllChapterProgressAsync() {
+        Log.d(TAG, "Starting calculation for all chapter progress...");
+        BuildersKt.launch(viewModelScope, Dispatchers.getIO(), CoroutineStart.DEFAULT, (coroutineScope, continuation) -> {
+            try {
+                Map<Integer, Pair<Integer, Integer>> progressMap = new HashMap<>();
+                // 仮にチャプターが1から6まであるとする (本来はDBなどから最大チャプター番号を取得する方が良い)
+                int maxChapter = 6; 
+                
+                for (int chapterNum = 1; chapterNum <= maxChapter; chapterNum++) {
+                    String chapterStr = String.valueOf(chapterNum); // DAOのクエリはStringを受け取るため変換
+                    
+                    // 1. 総カテゴリ数を取得
+                    List<String> distinctCategories = quizDao.getDistinctCategoriesForChapter(chapterStr);
+                    int totalCategories = distinctCategories != null ? distinctCategories.size() : 0;
+                    
+                    // 2. 完了カテゴリ数を取得
+                    List<String> completedCategories = quizDao.getCompletedCategoriesForChapter(chapterStr);
+                    int completedCount = completedCategories != null ? completedCategories.size() : 0;
+                    
+                    Log.d(TAG, "Chapter " + chapterStr + " progress: " + completedCount + "/" + totalCategories);
+                    progressMap.put(chapterNum, new Pair<>(completedCount, totalCategories));
+                }
+                
+                // 計算結果をLiveDataにポスト
+                chapterProgressMapLiveData.postValue(progressMap);
+                Log.d(TAG, "Finished calculation for all chapter progress. Map size: " + progressMap.size());
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error calculating chapter progress", e);
+                // エラー発生時は空のマップをポストするか、エラー処理を行う
+                chapterProgressMapLiveData.postValue(Collections.emptyMap()); 
+            }
+            return Unit.INSTANCE;
         });
     }
 }

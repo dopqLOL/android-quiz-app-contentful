@@ -454,7 +454,7 @@ public class ProblemListFragment extends Fragment implements UnitLessonAdapter.O
             boolean isLastUnit = Objects.equals(unitNumber, sortedUnitNumbers.get(sortedUnitNumbers.size() - 1));
             int completedLessonsInUnit = countCompletedLessonsInUnit(unitNumber, lessonsInUnit);
             int totalLessonsInUnit = lessonsInUnit.size();
-            String unitTitle = unitTitlesMap.getOrDefault(unitNumber, "Unit " + unitNumber);
+            String unitTitle = unitNumber + "章";
             String unitDescription = unitDescriptionsMap.getOrDefault(unitNumber, "");
 
             displayItems.add(new UnitLessonItem(

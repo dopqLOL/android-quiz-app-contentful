@@ -152,7 +152,7 @@
     <string name="empty_state_statistics">まだ統計データがありません。\n学習を進めてデータを集めましょう！</string>
 
     <string name="chapter_format">第%d章</string>
-    <string name="categories_progress_format">%1$d/%2$d Lessons</string>
+    <string name="categories_progress_format">%1$d/%2$d Categories</string>
     <string name="java_chapters_title">Java 学習コース</string>
     <string name="java_chapters_description">基礎から応用まで、各章を順に進めましょう</string>
     <string name="chapter_icon_description">Chapter icon</string>

@@ -1,6 +1,7 @@
 package com.example.contentful_javasilver;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,7 +20,11 @@ import com.example.contentful_javasilver.model.ChapterItem;
 import com.example.contentful_javasilver.viewmodels.QuizViewModel;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+
+import androidx.core.util.Pair;
 
 public class ChapterFragment extends Fragment implements ChapterAdapter.OnChapterClickListener {
     private FragmentChapterBinding binding;
@@ -123,6 +128,15 @@ public class ChapterFragment extends Fragment implements ChapterAdapter.OnChapte
             }
         });
         // --- 追加ここまで ---
+
+        // ★★★ 追加: チャプター進捗を監視 ★★★
+        quizViewModel.getChapterProgressMapLiveData().observe(getViewLifecycleOwner(), progressMap -> {
+            if (progressMap != null) {
+                // 進捗データが更新されたらチャプターリストを再読み込み（再描画）
+                Log.d(TAG, "Chapter progress map updated. Reloading chapters.");
+                loadChapters(); 
+            }
+        });
     }
 
     private void setupRecyclerView() {
@@ -132,24 +146,28 @@ public class ChapterFragment extends Fragment implements ChapterAdapter.OnChapte
     }
 
     private void loadChapters() {
-        // 通常はデータベースから読み込むなどの処理が入る
-        // ここではサンプルデータを作成
+        // ViewModelから最新の進捗マップを取得（なければ空のマップ）
+        Map<Integer, Pair<Integer, Integer>> progressMap = quizViewModel.getChapterProgressMapLiveData().getValue();
+        if (progressMap == null) {
+            progressMap = Collections.emptyMap();
+        }
+
         List<ChapterItem> chapters = new ArrayList<>();
         
         for (int i = 0; i < chapterTitles.length; i++) {
-            // 章番号は1から始まる
             int chapterNumber = i + 1;
-            // 各章のカテゴリ数は固定（仮の値）
-            int totalCategories = 5;
-            // 完了したカテゴリ数（仮の値）
-            int completedCategories = (int) (Math.random() * (totalCategories + 1));
+            
+            // ★★★ 進捗マップからデータを取得 ★★★
+            Pair<Integer, Integer> progress = progressMap.getOrDefault(chapterNumber, new Pair<>(0, 0)); // デフォルトは 0/0
+            int completedCategories = progress.first;
+            int totalCategories = progress.second;
             
             ChapterItem chapter = new ChapterItem(
                     chapterNumber,
-                    chapterTitles[i],
+                    chapterNumber + "章",
                     chapterDescriptions[i],
-                    totalCategories,
-                    completedCategories,
+                    totalCategories,      // <<< 取得した総カテゴリ数
+                    completedCategories,  // <<< 取得した完了カテゴリ数
                     chapterColorResIds[i],
                     chapterIconResIds[i]
             );
@@ -158,6 +176,7 @@ public class ChapterFragment extends Fragment implements ChapterAdapter.OnChapte
         }
         
         chapterAdapter.updateItems(chapters);
+        Log.d(TAG, "Chapter list updated with progress info.");
     }
 
     @Override

@@ -190,4 +190,22 @@ public interface QuizDao {
     // ★★★ 指定されたQIDのQuizEntityを同期的に取得するメソッドを追加 (LIMIT 1) ★★★
     @Query("SELECT * FROM quizzes WHERE qid = :qid LIMIT 1")
     QuizEntity getQuizByQidSync(String qid);
+
+    // --- クエリ追加ここから ---
+    /**
+     * 指定された章のユニークな questionCategory のリストを取得します。
+     * @param chapter 章番号 (文字列)
+     * @return ユニークなカテゴリ名のリスト
+     */
+    @Query("SELECT DISTINCT questionCategory FROM quizzes WHERE chapter = :chapter")
+    List<String> getDistinctCategoriesForChapter(String chapter);
+
+    /**
+     * 指定された章で正解した問題のユニークな questionCategory のリストを取得します。
+     * @param chapter 章番号 (文字列)
+     * @return 完了したカテゴリ名のリスト
+     */
+    @Query("SELECT DISTINCT q.questionCategory FROM quizzes q JOIN quiz_history h ON q.qid = h.problemId WHERE q.chapter = :chapter AND h.isCorrect = 1")
+    List<String> getCompletedCategoriesForChapter(String chapter);
+    // --- クエリ追加ここまで ---
 }

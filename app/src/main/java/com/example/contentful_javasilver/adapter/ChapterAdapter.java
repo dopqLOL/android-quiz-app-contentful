@@ -102,7 +102,7 @@ public class ChapterAdapter extends RecyclerView.Adapter<ChapterAdapter.ChapterV
             chapterButton.setBackgroundResource(unitButtonBgResId);
             
             chapterProgress.setText(context.getString(
-                    R.string.lessons_progress_format,
+                    R.string.categories_progress_format,
                     chapter.getCompletedCategories(),
                     chapter.getTotalCategories())
             );
