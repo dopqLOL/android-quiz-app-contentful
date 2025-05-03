@@ -184,10 +184,8 @@ public class UnitLessonAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         public void bind(UnitLessonItem item) {
             Context context = itemView.getContext();
             lessonIcon.setImageResource(item.getIconResId());
-            lessonNumber.setText(context.getString(
-                    R.string.lesson_number_format,
-                    item.getLessonNumber())
-            );
+            String lessonQidText = "Lesson " + item.getUnitNumber() + "-" + item.getLessonNumber();
+            lessonNumber.setText(lessonQidText);
             lessonTitle.setText(item.getTitle());
             lessonCategory.setText(item.getCategory());
 

@@ -176,6 +176,7 @@ fun QuizContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState) // Use the remembered scroll state
+            .navigationBarsPadding() // <<<--- Add this modifier
             .padding(16.dp) // Add padding around the content
     ) {
         // Question Area in a Card

@@ -206,8 +206,8 @@ fun ContentfulJavasilverTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        // typography = Typography, // Define Typography later if needed
-        // shapes = Shapes, // Define Shapes later if needed
+        typography = Typography,
+        shapes = Shapes,
         content = content
     )
 } 
