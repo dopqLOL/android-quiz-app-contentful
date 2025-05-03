@@ -23,10 +23,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import androidx.core.util.Pair;
 
 public class ChapterFragment extends Fragment implements ChapterAdapter.OnChapterClickListener {
+    private static final String TAG = "ChapterFragment";
     private FragmentChapterBinding binding;
     private ChapterAdapter chapterAdapter;
     private QuizViewModel quizViewModel;
@@ -147,9 +149,9 @@ public class ChapterFragment extends Fragment implements ChapterAdapter.OnChapte
 
     private void loadChapters() {
         // ViewModelから最新の進捗マップを取得（なければ空のマップ）
-        Map<Integer, Pair<Integer, Integer>> progressMap = quizViewModel.getChapterProgressMapLiveData().getValue();
+        Map<Integer, androidx.core.util.Pair<Integer, Integer>> progressMap = quizViewModel.getChapterProgressMapLiveData().getValue();
         if (progressMap == null) {
-            progressMap = Collections.emptyMap();
+            progressMap = new HashMap<>();
         }
 
         List<ChapterItem> chapters = new ArrayList<>();
@@ -158,7 +160,7 @@ public class ChapterFragment extends Fragment implements ChapterAdapter.OnChapte
             int chapterNumber = i + 1;
             
             // ★★★ 進捗マップからデータを取得 ★★★
-            Pair<Integer, Integer> progress = progressMap.getOrDefault(chapterNumber, new Pair<>(0, 0)); // デフォルトは 0/0
+            androidx.core.util.Pair<Integer, Integer> progress = progressMap.getOrDefault(chapterNumber, new androidx.core.util.Pair<>(0, 0)); // デフォルトは 0/0
             int completedCategories = progress.first;
             int totalCategories = progress.second;
             
@@ -176,7 +178,7 @@ public class ChapterFragment extends Fragment implements ChapterAdapter.OnChapte
         }
         
         chapterAdapter.updateItems(chapters);
-        Log.d(TAG, "Chapter list updated with progress info.");
+        chapterAdapter.notifyDataSetChanged();
     }
 
     @Override

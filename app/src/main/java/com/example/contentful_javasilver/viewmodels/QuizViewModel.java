@@ -42,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -112,7 +113,8 @@ public class QuizViewModel extends AndroidViewModel {
     private final MutableLiveData<Integer> weeklyAnswersCount = new MutableLiveData<>(0);
     private final MutableLiveData<Integer> weeklyGoal; // Remove initializer here
     private final MutableLiveData<Integer> totalAnswersCount = new MutableLiveData<>(0);
-    private final MutableLiveData<Pair<Integer, Integer>> streakInfo = new MutableLiveData<>(new Pair<>(0, 0));
+    // ★★★ streakInfo の型を androidx.core.util.Pair に ★★★
+    private final MutableLiveData<androidx.core.util.Pair<Integer, Integer>> streakInfo = new MutableLiveData<>(new androidx.core.util.Pair<>(0, 0));
     private final MutableLiveData<int[]> weeklyDailyAnswerCounts = new MutableLiveData<>(new int[7]);
     // 追加: 今日の学習時間 LiveData (表示用文字列)
     private final MutableLiveData<String> todayStudyTimeLiveData = new MutableLiveData<>("今日の学習時間: 0分");
@@ -162,9 +164,11 @@ public class QuizViewModel extends AndroidViewModel {
     // ★★★ Firestore インスタンスを追加 ★★★
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-    // ★★★ Chapter進捗情報 LiveData ★★★
-    private final MutableLiveData<Map<Integer, Pair<Integer, Integer>>> chapterProgressMapLiveData = new MutableLiveData<>();
-    public LiveData<Map<Integer, Pair<Integer, Integer>>> getChapterProgressMapLiveData() { 
+    // ★★★ Chapter進捗情報 LiveData (Use androidx.core.util.Pair) ★★★
+    // ★★★ 型パラメータの Pair を androidx.core.util.Pair に ★★★
+    private final MutableLiveData<Map<Integer, androidx.core.util.Pair<Integer, Integer>>> chapterProgressMapLiveData = new MutableLiveData<>();
+    // ★★★ ゲッターの戻り値の型パラメータも androidx.core.util.Pair に ★★★
+    public LiveData<Map<Integer, androidx.core.util.Pair<Integer, Integer>>> getChapterProgressMapLiveData() { 
         return chapterProgressMapLiveData; 
     }
 
@@ -1047,7 +1051,7 @@ public class QuizViewModel extends AndroidViewModel {
     public LiveData<Integer> getWeeklyAnswersCount() { return weeklyAnswersCount; }
     public LiveData<Integer> getWeeklyGoal() { return weeklyGoal; }
     public LiveData<Integer> getTotalAnswersCount() { return totalAnswersCount; }
-    public LiveData<Pair<Integer, Integer>> getStreakInfo() { return streakInfo; }
+    public LiveData<androidx.core.util.Pair<Integer, Integer>> getStreakInfo() { return streakInfo; }
     public LiveData<int[]> getWeeklyDailyAnswerCounts() { return weeklyDailyAnswerCounts; }
 
     /**
@@ -1113,7 +1117,8 @@ public class QuizViewModel extends AndroidViewModel {
      */
     private void calculateAndUpdateStreakInfo(List<String> distinctDates) {
         if (distinctDates == null || distinctDates.isEmpty()) {
-            streakInfo.postValue(new Pair<>(0, getBestStreakFromPrefs()));
+             // ★★★ インスタンス化も androidx.core.util.Pair に ★★★
+            streakInfo.postValue(new androidx.core.util.Pair<>(0, getBestStreakFromPrefs()));
             return;
         }
 
@@ -1130,7 +1135,7 @@ public class QuizViewModel extends AndroidViewModel {
             lastDateCal.setTime(lastDateParsed);
         } catch (ParseException e) {
             Log.e(TAG, "Error parsing last date: " + distinctDates.get(0), e);
-            streakInfo.postValue(new Pair<>(0, getBestStreakFromPrefs()));
+            streakInfo.postValue(new androidx.core.util.Pair<>(0, getBestStreakFromPrefs()));
             return;
         }
 
@@ -1166,7 +1171,7 @@ public class QuizViewModel extends AndroidViewModel {
             saveBestStreakToPrefs(bestStreak);
         }
 
-        streakInfo.postValue(new Pair<>(currentStreak, bestStreak));
+        streakInfo.postValue(new androidx.core.util.Pair<>(currentStreak, bestStreak));
     }
 
     /**
@@ -1566,36 +1571,76 @@ public class QuizViewModel extends AndroidViewModel {
      * 全てのチャプターのカテゴリ進捗（完了数/総数）を非同期で計算し、LiveDataを更新します。
      */
     private void calculateAllChapterProgressAsync() {
-        Log.d(TAG, "Starting calculation for all chapter progress...");
+        Log.d(TAG, "[calculateProgress] Starting calculation..."); // 開始ログ
         BuildersKt.launch(viewModelScope, Dispatchers.getIO(), CoroutineStart.DEFAULT, (coroutineScope, continuation) -> {
+            Map<Integer, androidx.core.util.Pair<Integer, Integer>> progressMap = new HashMap<>();
             try {
-                Map<Integer, Pair<Integer, Integer>> progressMap = new HashMap<>();
-                // 仮にチャプターが1から6まであるとする (本来はDBなどから最大チャプター番号を取得する方が良い)
-                int maxChapter = 6; 
-                
-                for (int chapterNum = 1; chapterNum <= maxChapter; chapterNum++) {
-                    String chapterStr = String.valueOf(chapterNum); // DAOのクエリはStringを受け取るため変換
-                    
-                    // 1. 総カテゴリ数を取得
-                    List<String> distinctCategories = quizDao.getDistinctCategoriesForChapter(chapterStr);
-                    int totalCategories = distinctCategories != null ? distinctCategories.size() : 0;
-                    
-                    // 2. 完了カテゴリ数を取得
-                    List<String> completedCategories = quizDao.getCompletedCategoriesForChapter(chapterStr);
-                    int completedCount = completedCategories != null ? completedCategories.size() : 0;
-                    
-                    Log.d(TAG, "Chapter " + chapterStr + " progress: " + completedCount + "/" + totalCategories);
-                    progressMap.put(chapterNum, new Pair<>(completedCount, totalCategories));
-                }
-                
-                // 計算結果をLiveDataにポスト
-                chapterProgressMapLiveData.postValue(progressMap);
-                Log.d(TAG, "Finished calculation for all chapter progress. Map size: " + progressMap.size());
+                Log.d(TAG, "[calculateProgress IO] Getting all quizzes from DAO...");
+                List<QuizEntity> quizzes = quizDao.getAllQuizzesSorted();
+                Log.d(TAG, "[calculateProgress IO] Got " + (quizzes != null ? quizzes.size() : "null") + " quizzes.");
 
+                if (quizzes != null && !quizzes.isEmpty()) {
+                    Set<Integer> chapters = null;
+                    try {
+                        chapters = quizzes.stream()
+                                        .filter(q -> q.getChapter() != null && !q.getChapter().isEmpty())
+                                        .map(q -> {
+                                            // ★★★ "章" を取り除いてから parseInt する ★★★
+                                            String chapterStr = q.getChapter();
+                                            String numericPart = chapterStr.replace("章", "").trim(); // "章"を削除し、前後の空白も除去
+                                            try {
+                                                return Integer.parseInt(numericPart);
+                                            } catch (NumberFormatException nfe) {
+                                                Log.e(TAG, "[calculateProgress IO] Failed to parse chapter number: " + numericPart + " from original: " + chapterStr, nfe);
+                                                return null; // パース失敗した場合は null を返す
+                                            }
+                                        })
+                                        .filter(Objects::nonNull) // パース失敗(null)したものを除外
+                                        .collect(Collectors.toSet());
+                        Log.d(TAG, "[calculateProgress IO] Found distinct chapters after parsing: " + chapters);
+                    } catch (Exception e) { // ストリーム処理全体のエラーキャッチ
+                         Log.e(TAG, "[calculateProgress IO] Error processing quiz stream for chapters", e);
+                         chapters = Collections.emptySet(); // エラー時は空セット
+                    }
+
+                    for (Integer chapter : chapters) {
+                        String chapterStr = String.valueOf(chapter);
+                        Log.d(TAG, "[calculateProgress IO] Processing chapter: " + chapterStr);
+                        List<String> allCategories = null;
+                        List<String> completedCategories = null;
+                        try {
+                            Log.d(TAG, "[calculateProgress IO] Getting distinct categories for chapter: " + chapterStr);
+                            allCategories = quizDao.getDistinctCategoriesForChapter(chapterStr);
+                            Log.d(TAG, "[calculateProgress IO] Distinct categories count: " + (allCategories != null ? allCategories.size() : "null"));
+
+                            Log.d(TAG, "[calculateProgress IO] Getting completed categories for chapter: " + chapterStr);
+                            completedCategories = quizDao.getCompletedCategoriesForChapter(chapterStr);
+                            Log.d(TAG, "[calculateProgress IO] Completed categories count: " + (completedCategories != null ? completedCategories.size() : "null"));
+
+                            int completedSize = (completedCategories != null) ? completedCategories.size() : 0;
+                            int totalSize = (allCategories != null) ? allCategories.size() : 0;
+
+                            progressMap.put(chapter, new androidx.core.util.Pair<>(completedSize, totalSize));
+                            Log.d(TAG, "[calculateProgress IO] Chapter " + chapter + " Progress PUT: " + completedSize + "/" + totalSize);
+
+                        } catch (Exception e) {
+                            Log.e(TAG, "[calculateProgress IO] Error processing categories for chapter " + chapterStr, e);
+                            // このチャプターの処理中にエラーが出ても、他のチャプターの処理は続ける
+                            // エラーが出たチャプターは progressMap に追加されない
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "[calculateProgress IO] No quizzes found to calculate chapter progress.");
+                }
             } catch (Exception e) {
-                Log.e(TAG, "Error calculating chapter progress", e);
-                // エラー発生時は空のマップをポストするか、エラー処理を行う
-                chapterProgressMapLiveData.postValue(Collections.emptyMap()); 
+                // DAOアクセス自体やストリーム処理での予期せぬエラー
+                Log.e(TAG, "[calculateProgress IO] Error calculating chapter progress (outer try-catch)", e);
+                errorMessage.postValue("チャプター進捗の計算中に予期せぬエラーが発生しました。");
+                progressMap.clear();
+            } finally {
+                Log.d(TAG, "[calculateProgress IO] Calculation finished. Final progressMap: " + progressMap); // 最終結果をログ出力
+                chapterProgressMapLiveData.postValue(progressMap);
+                Log.d(TAG, "[calculateProgress] Posted progressMap to LiveData.");
             }
             return Unit.INSTANCE;
         });
