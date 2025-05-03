@@ -194,3 +194,11 @@ kapt {
 // kapt {
 //    correctErrorTypes true
 // }
+
+// ktlint configuration
+ktlint {
+    version.set("1.3.1") // Specify ktlint version (consider using the latest stable)
+    android.set(true) // Enable Android Kotlin Style Guide rules
+    ignoreFailures.set(true) // Allow build even if lint errors exist (change to false later)
+    // disabledRules.set(["rule-id-to-disable"]) // Example: Disable specific rules if needed
+}
